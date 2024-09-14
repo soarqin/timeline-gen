@@ -145,7 +145,7 @@ func main() {
 
 	face := loadFont(config.Font, config.FontSize)
 	d := &font.Drawer{
-		Dst:  img,
+		Dst:  imgTxt,
 		Src:  image.NewUniform(color.RGBA{R: config.TextColor[0], G: config.TextColor[1], B: config.TextColor[2], A: config.TextColor[3]}),
 		Face: face,
 		Dot:  fixed.Point26_6{},
@@ -164,34 +164,44 @@ func main() {
 		start = section.EndPos
 	}
 	start = 0
+	alt := rotation < 0
+	if alt {
+		rotation = -rotation
+	}
 	for _, section := range sections {
 		startPos := start/timeMax*float64(width) + 2
 		delimPos := section.EndPos/timeMax*float64(width) - 2
+
+		start = section.EndPos
+
 		w := int(delimPos - startPos)
 		rect, adv := d.BoundString(section.Name)
-		tw := int(float64(adv.Ceil())*math.Cos(rotation*math.Pi/180) + float64((rect.Max.Y-rect.Min.Y).Ceil())*math.Sin(rotation*math.Pi/180) + 0.5)
-		/*        if tw <= w {
-		          d.Dot = fixed.Point26_6{X: fixed.I((t - tw) / 2), Y: fixed.I(bottom/2-2+bottomTop) + (rect.Max.Y-rect.Min.Y)/2}
-		          d.DrawString(section.Name)
-		      } else*/{
-			img2 := image.NewRGBA(image.Rectangle{Min: image.Point{}, Max: image.Point{X: adv.Ceil(), Y: (rect.Max.Y - rect.Min.Y).Ceil()}})
-			d2 := &font.Drawer{
-				Dst:  img2,
-				Src:  image.NewUniform(color.RGBA{R: config.TextColor[0], G: config.TextColor[1], B: config.TextColor[2], A: config.TextColor[3]}),
-				Face: face,
-				Dot:  fixed.Point26_6{X: 0, Y: fixed.I((rect.Max.Y - rect.Min.Y).Ceil() - 2)},
+		var tw int
+		if alt || rotation == 0 {
+			tw = adv.Ceil()
+			if rotation == 0 || tw <= w {
+				d.Dot = fixed.Point26_6{X: fixed.I(int(startPos) + (w-tw)/2), Y: fixed.I(bottom/2-2+bottomTop) + (rect.Max.Y-rect.Min.Y)/2}
+				d.DrawString(section.Name)
+				continue
 			}
-			d2.DrawString(section.Name)
-			img2 = transform.Rotate(img2, -rotation, &transform.RotationOptions{ResizeBounds: true})
-			offset := w/2 - tw/2
-			if offset < 0 {
-				offset = 0
-			}
-			minPt := image.Point{X: int(startPos) + offset, Y: height - img2.Rect.Dy()}
-			maxPt := minPt.Add(img2.Rect.Size())
-			draw.Draw(imgTxt, image.Rectangle{Min: minPt, Max: maxPt}, img2, image.Point{}, draw.Over)
 		}
-		start = section.EndPos
+		tw = int(float64(adv.Ceil())*math.Cos(rotation*math.Pi/180) + float64((rect.Max.Y-rect.Min.Y).Ceil())*math.Sin(rotation*math.Pi/180) + 0.5)
+		img2 := image.NewRGBA(image.Rectangle{Min: image.Point{}, Max: image.Point{X: adv.Ceil(), Y: (rect.Max.Y - rect.Min.Y).Ceil()}})
+		d2 := &font.Drawer{
+			Dst:  img2,
+			Src:  image.NewUniform(color.RGBA{R: config.TextColor[0], G: config.TextColor[1], B: config.TextColor[2], A: config.TextColor[3]}),
+			Face: face,
+			Dot:  fixed.Point26_6{X: 0, Y: fixed.I((rect.Max.Y - rect.Min.Y).Ceil() - 2)},
+		}
+		d2.DrawString(section.Name)
+		img2 = transform.Rotate(img2, -rotation, &transform.RotationOptions{ResizeBounds: true})
+		offset := w/2 - tw/2
+		if offset < 0 {
+			offset = 0
+		}
+		minPt := image.Point{X: int(startPos) + offset, Y: height - img2.Rect.Dy()}
+		maxPt := minPt.Add(img2.Rect.Size())
+		draw.Draw(imgTxt, image.Rectangle{Min: minPt, Max: maxPt}, img2, image.Point{}, draw.Over)
 	}
 	_ = face.Close()
 
